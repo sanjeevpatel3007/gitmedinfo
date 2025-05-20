@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
+import Image from 'next/image';
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -33,6 +34,7 @@ const Navbar: React.FC = () => {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
+              <Image src="/logo.jpg" alt="logo" width={32} height={32} />
               <Link href="/" className="text-2xl font-bold text-blue-600">
                 GetMedInfo
               </Link>
