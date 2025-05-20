@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   title: 'GetMedInfo - Medical Information Resource',
   description: 'Detailed information about medicines, including composition, dosage, uses, side effects, and precautions.',
   keywords: 'medicine, medical information, drugs, healthcare, medicine database',
+  icons: {
+    icon: '/logo.jpg',
+  },
 };
 
 export default function RootLayout({

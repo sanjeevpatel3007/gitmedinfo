@@ -46,7 +46,7 @@ export default function CategoriesSection() {
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {categories.map((category) => (
+          {categories && categories.length > 0 ? categories.map((category) => (
             <Link 
               key={category._id}
               href={`/categories/${category.slug}`}
@@ -64,7 +64,9 @@ export default function CategoriesSection() {
                 </div>
               </div>
             </Link>
-          ))}
+          )) : (
+            <p className="col-span-full text-center text-gray-500">No categories found</p>
+          )}
         </div>
         
         <div className="text-center mt-12">

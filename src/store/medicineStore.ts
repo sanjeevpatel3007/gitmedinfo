@@ -85,33 +85,54 @@ export const useMedicineStore = create<MedicineState>((set, get) => ({
     set({ searchLoading: true, error: null });
     try {
       const response = await axios.get('/api/medicines', {
-        params: searchParams
+        params: searchParams,
+        withCredentials: true // Ensure cookies are sent with the request
       });
       
+      // Ensure response data has expected structure
+      const medicines = response.data?.medicines || [];
+      const pagination = response.data?.pagination || {
+        total: 0,
+        page: 1,
+        limit: 10,
+        pages: 0
+      };
+      
       set({ 
-        currentPageMedicines: response.data.medicines,
-        pagination: response.data.pagination,
+        currentPageMedicines: medicines,
+        pagination,
         searchParams,
         searchLoading: false
       });
       
       // Add to our cache of medicines if not already present
-      const existingIds = get().medicines.map(m => m._id);
-      const newMedicines = response.data.medicines.filter(
-        (m: Medicine) => !existingIds.includes(m._id)
-      );
-      
-      if (newMedicines.length > 0) {
-        set(state => ({ 
-          medicines: [...state.medicines, ...newMedicines] 
-        }));
+      if (medicines.length > 0) {
+        const existingIds = get().medicines.map(m => m._id);
+        const newMedicines = medicines.filter(
+          (m: Medicine) => !existingIds.includes(m._id)
+        );
+        
+        if (newMedicines.length > 0) {
+          set(state => ({ 
+            medicines: [...state.medicines, ...newMedicines] 
+          }));
+        }
       }
     } catch (error: any) {
       console.error('Error fetching medicines:', error);
-      set({ 
-        error: error.response?.data?.error || 'Failed to load medicines',
-        searchLoading: false 
-      });
+      
+      // Check for authentication errors
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        set({ 
+          error: 'Authentication error. Please log in again.',
+          searchLoading: false 
+        });
+      } else {
+        set({ 
+          error: error.response?.data?.error || 'Failed to load medicines',
+          searchLoading: false 
+        });
+      }
     }
   },
   
@@ -127,7 +148,14 @@ export const useMedicineStore = create<MedicineState>((set, get) => ({
     // If not in cache, fetch from API
     set({ isLoading: true, error: null });
     try {
-      const response = await axios.get(`/api/medicines/slug/${slug}`);
+      const response = await axios.get(`/api/medicines/slug/${slug}`, {
+        withCredentials: true // Ensure cookies are sent with the request
+      });
+      
+      if (!response.data || !response.data.medicine) {
+        throw new Error('Medicine not found');
+      }
+      
       const medicine = response.data.medicine;
       
       set({ 
@@ -139,10 +167,19 @@ export const useMedicineStore = create<MedicineState>((set, get) => ({
       return medicine;
     } catch (error: any) {
       console.error('Error fetching medicine:', error);
-      set({ 
-        error: error.response?.data?.error || 'Failed to load medicine',
-        isLoading: false 
-      });
+      
+      // Check for authentication errors
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        set({ 
+          error: 'Authentication error. Please log in again.',
+          isLoading: false 
+        });
+      } else {
+        set({ 
+          error: error.response?.data?.error || 'Failed to load medicine',
+          isLoading: false 
+        });
+      }
       return null;
     }
   },

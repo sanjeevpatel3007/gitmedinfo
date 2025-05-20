@@ -20,8 +20,17 @@ export const generateToken = async (user: IUser): Promise<string> => {
 };
 
 export const verifyToken = async (token: string): Promise<TokenPayload | null> => {
+  if (!token || token === 'undefined' || token === 'null') {
+    console.log('Invalid token provided to verifyToken');
+    return null;
+  }
+  
   try {
     const { payload } = await jwtVerify(token, SECRET);
+    if (!payload.id || !payload.role) {
+      console.error('Token payload missing required fields');
+      return null;
+    }
     return payload as unknown as TokenPayload;
   } catch (error) {
     console.error('Token verification error:', error);
@@ -48,7 +57,11 @@ export const setTokenCookie = (res: NextResponse, token: string) => {
 export const getTokenFromCookies = async () => {
   try {
     const cookieStore = await cookies();
-    return cookieStore.get('token')?.value || null;
+    const token = cookieStore.get('token')?.value;
+    if (!token || token === 'undefined' || token === 'null') {
+      return null;
+    }
+    return token;
   } catch (error) {
     console.error('Error accessing cookies:', error);
     return null;
@@ -67,6 +80,11 @@ export const getTokenFromRequest = (req: NextRequest): string | null => {
   // Check cookies if no token in header
   if (!token) {
     token = req.cookies.get('token')?.value || null;
+  }
+  
+  // Validate token format
+  if (token === 'undefined' || token === 'null' || !token) {
+    return null;
   }
   
   return token;
