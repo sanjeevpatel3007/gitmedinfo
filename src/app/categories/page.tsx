@@ -16,7 +16,7 @@ export default function CategoriesPage() {
     category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     category.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
+
   return (
     <div className="container mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Medicine Categories</h1>
@@ -46,25 +46,25 @@ export default function CategoriesPage() {
           </div>
         </div>
       </div>
-      
+
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
+                </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
           Failed to load categories
-        </div>
+                </div>
       ) : filteredCategories.length === 0 ? (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded">
           No categories found matching "{searchTerm}"
-        </div>
+              </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredCategories.map((category) => (
             <CategoryCard key={category._id} category={category} />
-          ))}
-        </div>
+        ))}
+      </div>
       )}
     </div>
   );

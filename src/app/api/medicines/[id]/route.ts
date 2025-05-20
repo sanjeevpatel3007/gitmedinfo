@@ -7,11 +7,12 @@ import { isValidObjectId } from 'mongoose';
 // GET single medicine by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
+  // Destructure params from context, this resolves the async params issue
+  const { id } = context.params;
+  
   try {
-    const id = params.id;
-    
     if (!isValidObjectId(id)) {
       return NextResponse.json(
         { error: 'Invalid medicine ID format' },
@@ -41,13 +42,21 @@ export async function GET(
 // UPDATE medicine by ID (admin only)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
+  // Destructure params from context, this resolves the async params issue
+  const { id } = context.params;
+  
   try {
-    const id = params.id;
-    
     // Authentication check
     const token = getTokenFromRequest(request);
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
     const user = await getUserFromToken(token);
     
     if (!user || user.role !== 'admin') {
@@ -121,6 +130,7 @@ export async function PUT(
       { status: 200 }
     );
   } catch (error: any) {
+    console.error('Error in PUT /api/medicines/[id]:', error);
     return NextResponse.json(
       { error: 'Error updating medicine', details: error.message },
       { status: 500 }
@@ -131,13 +141,21 @@ export async function PUT(
 // DELETE medicine by ID (admin only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
+  // Destructure params from context, this resolves the async params issue
+  const { id } = context.params;
+  
   try {
-    const id = params.id;
-    
     // Authentication check
     const token = getTokenFromRequest(request);
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
     const user = await getUserFromToken(token);
     
     if (!user || user.role !== 'admin') {
@@ -169,6 +187,7 @@ export async function DELETE(
       { status: 200 }
     );
   } catch (error: any) {
+    console.error('Error in DELETE /api/medicines/[id]:', error);
     return NextResponse.json(
       { error: 'Error deleting medicine', details: error.message },
       { status: 500 }

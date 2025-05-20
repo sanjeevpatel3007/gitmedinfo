@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
   console.log(`Middleware processing path: ${path}`);
   console.log(`Auth token present: ${!!token}`);
 
-  // Public paths - allow access
+  // Public paths - allow access without authentication
   if (
     path === '/' ||
     path.startsWith('/auth') ||
@@ -21,6 +21,7 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/categories') ||
     path.startsWith('/_next') ||
     path.includes('.') || // Allow access to static files
+    path.startsWith('/api/upload') || // Allow upload API access
     // Skip middleware processing for admin routes - will be handled client-side
     path.startsWith('/admin')
   ) {
@@ -47,8 +48,8 @@ export async function middleware(request: NextRequest) {
 
     console.log(`User role: ${decoded.role}`);
 
-    // Check admin access
-    if (path.startsWith('/admin') && decoded.role !== 'admin') {
+    // Check admin access for admin API routes
+    if ((path.startsWith('/admin') || path.startsWith('/api/admin')) && decoded.role !== 'admin') {
       console.log('Non-admin attempting to access admin route, redirecting to home');
       return NextResponse.redirect(new URL('/', request.url));
     }

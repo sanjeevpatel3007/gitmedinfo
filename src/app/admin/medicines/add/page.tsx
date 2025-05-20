@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import ImageUploader from '@/components/admin/ImageUploader';
 
 interface Category {
   _id: string;
@@ -27,7 +28,7 @@ export default function AddMedicinePage() {
     uses: [''],
     sideEffects: [''],
     warnings: [''],
-    images: ['']
+    images: [] as string[]
   });
   const [dosages, setDosages] = useState<DosageItem[]>([
     { ageGroup: '', amount: '', frequency: '' }
@@ -43,7 +44,7 @@ export default function AddMedicinePage() {
   const fetchCategories = async () => {
     try {
       setCategoriesLoading(true);
-      const response = await axios.get('/api/categories');
+      const response = await axios.get('/api/categories', { withCredentials: true });
       setCategories(response.data.categories);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -102,6 +103,10 @@ export default function AddMedicinePage() {
     }
   };
 
+  const handleImagesChange = (newImages: string[]) => {
+    setFormData(prev => ({ ...prev, images: newImages }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -118,13 +123,12 @@ export default function AddMedicinePage() {
       uses: formData.uses.filter(item => item.trim() !== ''),
       sideEffects: formData.sideEffects.filter(item => item.trim() !== ''),
       warnings: formData.warnings.filter(item => item.trim() !== ''),
-      images: formData.images.filter(item => item.trim() !== ''),
       dosage: dosages.filter(d => d.ageGroup && d.amount && d.frequency)
     };
 
     try {
       setLoading(true);
-      await axios.post('/api/medicines', cleanedFormData);
+      await axios.post('/api/medicines', cleanedFormData, { withCredentials: true });
       toast.success('Medicine created successfully');
       router.push('/admin/medicines');
     } catch (error: any) {
@@ -406,39 +410,15 @@ export default function AddMedicinePage() {
             ))}
           </div>
 
-          {/* Images */}
+          {/* Images - using the new Cloudinary image uploader */}
           <div className="mb-6">
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Images (URLs)
-              </label>
-              <button
-                type="button"
-                onClick={() => addArrayField('images')}
-                className="text-sm text-blue-600 hover:text-blue-800"
-              >
-                + Add Image URL
-              </button>
-            </div>
-            {formData.images.map((item, index) => (
-              <div key={`img-${index}`} className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={item}
-                  onChange={(e) => handleArrayChange(index, 'images', e.target.value)}
-                  className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter image URL"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeArrayField('images', index)}
-                  className="px-3 py-2 text-red-600 hover:text-red-800"
-                  disabled={formData.images.length === 1}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Images
+            </label>
+            <ImageUploader
+              images={formData.images}
+              onImagesChange={handleImagesChange}
+            />
           </div>
 
           <div className="flex justify-end">
