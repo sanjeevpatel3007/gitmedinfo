@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db/mongoose";
 import Medicine from "@/lib/models/medicineModel";
-import { getUserFromToken, getTokenFromRequest } from "@/lib/auth/jwtHelper";
 
 // GET all medicines with pagination and filtering
 export async function GET(request: NextRequest) {
@@ -54,20 +53,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST new medicine (admin only)
+// POST new medicine (no authentication required in API)
 export async function POST(request: NextRequest) {
   try {
-    // Authentication check
-    const token = getTokenFromRequest(request);
-    const user = await getUserFromToken(token);
-    
-    if (!user || user.role !== "admin") {
-      return NextResponse.json(
-        { error: "Unauthorized - Admin access required" },
-        { status: 403 }
-      );
-    }
-
     await dbConnect();
     const data = await request.json();
     

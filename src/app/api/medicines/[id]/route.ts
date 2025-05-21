@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/mongoose';
 import Medicine from '@/lib/models/medicineModel';
-import { getUserFromToken, getTokenFromRequest } from '@/lib/auth/jwtHelper';
 import { isValidObjectId } from 'mongoose';
 
 // GET single medicine by ID
@@ -39,7 +38,7 @@ export async function GET(
   }
 }
 
-// UPDATE medicine by ID (admin only)
+// UPDATE medicine by ID (no authentication required in API)
 export async function PUT(
   request: NextRequest,
   context: { params: { id: string } }
@@ -48,24 +47,6 @@ export async function PUT(
   const { id } = context.params;
   
   try {
-    // Authentication check
-    const token = getTokenFromRequest(request);
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-    
-    const user = await getUserFromToken(token);
-    
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin access required' },
-        { status: 403 }
-      );
-    }
-    
     if (!isValidObjectId(id)) {
       return NextResponse.json(
         { error: 'Invalid medicine ID format' },
@@ -138,7 +119,7 @@ export async function PUT(
   }
 }
 
-// DELETE medicine by ID (admin only)
+// DELETE medicine by ID (no authentication required in API)
 export async function DELETE(
   request: NextRequest,
   context: { params: { id: string } }
@@ -147,24 +128,6 @@ export async function DELETE(
   const { id } = context.params;
   
   try {
-    // Authentication check
-    const token = getTokenFromRequest(request);
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-    
-    const user = await getUserFromToken(token);
-    
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin access required' },
-        { status: 403 }
-      );
-    }
-    
     if (!isValidObjectId(id)) {
       return NextResponse.json(
         { error: 'Invalid medicine ID format' },

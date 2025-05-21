@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { useMedicineStore } from '@/store/medicineStore';
 
 interface Category {
   _id: string;
@@ -20,61 +20,44 @@ interface Medicine {
   createdAt: string;
 }
 
-interface Pagination {
-  total: number;
-  page: number;
-  limit: number;
-  pages: number;
-}
-
 export default function MedicinesPage() {
-  const [medicines, setMedicines] = useState<Medicine[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({
-    total: 0,
-    page: 1,
-    limit: 10,
-    pages: 0
-  });
-  const [loading, setLoading] = useState(true);
-  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  
+  const { 
+    currentPageMedicines: medicines, 
+    pagination, 
+    searchLoading: loading,
+    searchParams: medicineSearchParams,
+    fetchMedicines,
+    setSearchParams,
+    deleteMedicine
+  } = useMedicineStore();
 
   useEffect(() => {
-    const page = searchParams.get('page') || '1';
+    const page = parseInt(searchParams.get('page') || '1');
     const search = searchParams.get('search') || '';
+    
     setSearchTerm(search);
-    fetchMedicines(parseInt(page), search);
+    setSearchParams({ page, search });
+    fetchMedicines({ page, search });
   }, [searchParams]);
-
-  const fetchMedicines = async (page: number = 1, search: string = '') => {
-    try {
-      setLoading(true);
-      const response = await axios.get('/api/medicines', {
-        params: { page, limit: 10, search }
-      });
-      setMedicines(response.data.medicines);
-      setPagination(response.data.pagination);
-    } catch (error) {
-      console.error('Error fetching medicines:', error);
-      toast.error('Failed to load medicines');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this medicine?')) return;
 
     try {
       setDeleteLoading(id);
-      await axios.delete(`/api/medicines/${id}`);
-      toast.success('Medicine deleted successfully');
-      fetchMedicines(pagination.page, searchTerm);
-    } catch (error: any) {
-      console.error('Error deleting medicine:', error);
-      toast.error(error.response?.data?.error || 'Failed to delete medicine');
+      const success = await deleteMedicine(id);
+      
+      if (success) {
+        // No need to manually refetch as the store already updated its state
+        // Just display the toast success message
+      } else {
+        // Error toast is already handled in the store
+      }
     } finally {
       setDeleteLoading(null);
     }

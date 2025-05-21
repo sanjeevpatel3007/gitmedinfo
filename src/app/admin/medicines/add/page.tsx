@@ -3,14 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import ImageUploader from '@/components/admin/ImageUploader';
-
-interface Category {
-  _id: string;
-  name: string;
-}
+import { useMedicineStore } from '@/store/medicineStore';
+import { useCategoryStore } from '@/store/categoryStore';
+import { MedicineInput } from '@/lib/services/medicineService';
 
 interface DosageItem {
   ageGroup: string;
@@ -19,7 +16,10 @@ interface DosageItem {
 }
 
 export default function AddMedicinePage() {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const router = useRouter();
+  const { createMedicine, isLoading: medicineLoading } = useMedicineStore();
+  const { categories, fetchCategories, isLoading: categoriesLoading } = useCategoryStore();
+  
   const [formData, setFormData] = useState({
     name: '',
     composition: [''],
@@ -30,29 +30,16 @@ export default function AddMedicinePage() {
     warnings: [''],
     images: [] as string[]
   });
+  
   const [dosages, setDosages] = useState<DosageItem[]>([
     { ageGroup: '', amount: '', frequency: '' }
   ]);
-  const [loading, setLoading] = useState(false);
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const router = useRouter();
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
-    try {
-      setCategoriesLoading(true);
-      const response = await axios.get('/api/categories', { withCredentials: true });
-      setCategories(response.data.categories);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      toast.error('Failed to load categories');
-    } finally {
-      setCategoriesLoading(false);
-    }
-  };
+  }, [fetchCategories]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -110,6 +97,9 @@ export default function AddMedicinePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prevent multiple submissions
+    if (isSubmitting) return;
+    
     // Validate form
     if (!formData.name || !formData.composition[0] || !formData.workingMechanism || !formData.category) {
       toast.error('Please fill in all required fields');
@@ -117,7 +107,7 @@ export default function AddMedicinePage() {
     }
 
     // Filter out empty values
-    const cleanedFormData = {
+    const cleanedFormData: MedicineInput = {
       ...formData,
       composition: formData.composition.filter(item => item.trim() !== ''),
       uses: formData.uses.filter(item => item.trim() !== ''),
@@ -127,15 +117,18 @@ export default function AddMedicinePage() {
     };
 
     try {
-      setLoading(true);
-      await axios.post('/api/medicines', cleanedFormData, { withCredentials: true });
-      toast.success('Medicine created successfully');
-      router.push('/admin/medicines');
-    } catch (error: any) {
-      console.error('Error creating medicine:', error);
-      toast.error(error.response?.data?.error || 'Failed to create medicine');
+      setIsSubmitting(true);
+      const result = await createMedicine(cleanedFormData);
+      
+      if (result) {
+        // Use setTimeout to prevent immediate navigation which can cause issues
+        // with toast notifications or state updates
+        setTimeout(() => {
+          router.push('/admin/medicines');
+        }, 500);
+      }
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -167,6 +160,7 @@ export default function AddMedicinePage() {
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
+                disabled={isSubmitting}
               />
             </div>
 
@@ -181,7 +175,7 @@ export default function AddMedicinePage() {
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
-                disabled={categoriesLoading}
+                disabled={categoriesLoading || isSubmitting}
               >
                 <option value="">Select a category</option>
                 {categories.map(category => (
@@ -203,6 +197,7 @@ export default function AddMedicinePage() {
                 type="button"
                 onClick={() => addArrayField('composition')}
                 className="text-sm text-blue-600 hover:text-blue-800"
+                disabled={isSubmitting}
               >
                 + Add Ingredient
               </button>
@@ -216,12 +211,13 @@ export default function AddMedicinePage() {
                   className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter ingredient"
                   required={index === 0}
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
                   onClick={() => removeArrayField('composition', index)}
                   className="px-3 py-2 text-red-600 hover:text-red-800"
-                  disabled={formData.composition.length === 1}
+                  disabled={formData.composition.length === 1 || isSubmitting}
                 >
                   ✕
                 </button>
@@ -242,6 +238,7 @@ export default function AddMedicinePage() {
               rows={4}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -255,6 +252,7 @@ export default function AddMedicinePage() {
                 type="button"
                 onClick={addDosage}
                 className="text-sm text-blue-600 hover:text-blue-800"
+                disabled={isSubmitting}
               >
                 + Add Dosage
               </button>
@@ -269,6 +267,7 @@ export default function AddMedicinePage() {
                     onChange={(e) => handleDosageChange(index, 'ageGroup', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., Adults, Children"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -279,6 +278,7 @@ export default function AddMedicinePage() {
                     onChange={(e) => handleDosageChange(index, 'amount', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., 5ml, 1 tablet"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="flex items-end">
@@ -290,13 +290,14 @@ export default function AddMedicinePage() {
                       onChange={(e) => handleDosageChange(index, 'frequency', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="e.g., Twice daily"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() => removeDosage(index)}
                     className="ml-2 px-3 py-2 text-red-600 hover:text-red-800"
-                    disabled={dosages.length === 1}
+                    disabled={dosages.length === 1 || isSubmitting}
                   >
                     ✕
                   </button>
@@ -315,6 +316,7 @@ export default function AddMedicinePage() {
                 type="button"
                 onClick={() => addArrayField('uses')}
                 className="text-sm text-blue-600 hover:text-blue-800"
+                disabled={isSubmitting}
               >
                 + Add Use
               </button>
@@ -327,12 +329,13 @@ export default function AddMedicinePage() {
                   onChange={(e) => handleArrayChange(index, 'uses', e.target.value)}
                   className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter use"
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
                   onClick={() => removeArrayField('uses', index)}
                   className="px-3 py-2 text-red-600 hover:text-red-800"
-                  disabled={formData.uses.length === 1}
+                  disabled={formData.uses.length === 1 || isSubmitting}
                 >
                   ✕
                 </button>
@@ -350,6 +353,7 @@ export default function AddMedicinePage() {
                 type="button"
                 onClick={() => addArrayField('sideEffects')}
                 className="text-sm text-blue-600 hover:text-blue-800"
+                disabled={isSubmitting}
               >
                 + Add Side Effect
               </button>
@@ -362,12 +366,13 @@ export default function AddMedicinePage() {
                   onChange={(e) => handleArrayChange(index, 'sideEffects', e.target.value)}
                   className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter side effect"
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
                   onClick={() => removeArrayField('sideEffects', index)}
                   className="px-3 py-2 text-red-600 hover:text-red-800"
-                  disabled={formData.sideEffects.length === 1}
+                  disabled={formData.sideEffects.length === 1 || isSubmitting}
                 >
                   ✕
                 </button>
@@ -385,6 +390,7 @@ export default function AddMedicinePage() {
                 type="button"
                 onClick={() => addArrayField('warnings')}
                 className="text-sm text-blue-600 hover:text-blue-800"
+                disabled={isSubmitting}
               >
                 + Add Warning
               </button>
@@ -397,12 +403,13 @@ export default function AddMedicinePage() {
                   onChange={(e) => handleArrayChange(index, 'warnings', e.target.value)}
                   className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter warning"
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
                   onClick={() => removeArrayField('warnings', index)}
                   className="px-3 py-2 text-red-600 hover:text-red-800"
-                  disabled={formData.warnings.length === 1}
+                  disabled={formData.warnings.length === 1 || isSubmitting}
                 >
                   ✕
                 </button>
@@ -418,18 +425,19 @@ export default function AddMedicinePage() {
             <ImageUploader
               images={formData.images}
               onImagesChange={handleImagesChange}
+              disabled={isSubmitting}
             />
           </div>
 
           <div className="flex justify-end">
             <button
               type="submit"
-              disabled={loading}
+              disabled={medicineLoading || isSubmitting}
               className={`bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
+                (medicineLoading || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
-              {loading ? 'Creating...' : 'Create Medicine'}
+              {isSubmitting ? 'Creating...' : 'Create Medicine'}
             </button>
           </div>
         </form>
