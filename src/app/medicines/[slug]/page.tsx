@@ -68,7 +68,7 @@ export default function MedicinePage({ params }: PageProps) {
           Medicines
         </Link>
         {' / '}
-        <Link href={`/categories/${medicine.category.slug}`} className="text-blue-600 hover:underline">
+        <Link href={`/categories/${medicine.category.name}`} className="text-blue-600 hover:underline">
           {medicine.category.name}
         </Link>
         {' / '}
