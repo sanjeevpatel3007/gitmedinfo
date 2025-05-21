@@ -26,11 +26,21 @@ export default function MedicineCard({ medicine }: MedicineCardProps) {
       </div>
       
       <div className="p-4">
-        <div className="mb-2">
-          <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-            {medicine.category.name}
-          </span>
-        </div>
+        {medicine.category && (
+          <div className="mb-2">
+            <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+              {medicine.category.name}
+            </span>
+          </div>
+        )}
+        
+        {!medicine.category && (
+          <div className="mb-2">
+            <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
+              Uncategorized
+            </span>
+          </div>
+        )}
         
         <h3 className="text-lg font-semibold text-gray-800 mb-2 group-hover:text-blue-600">
           {medicine.name}

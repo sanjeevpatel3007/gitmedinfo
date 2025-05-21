@@ -136,8 +136,14 @@ export const getCurrentUser = async (): Promise<AuthResponse> => {
 
     const data = await res.json();
 
+    // Handle unauthorized or other errors without throwing
     if (!res.ok) {
-      throw new Error(data.message || 'Failed to get user data');
+      console.log('Auth check failed:', data.message || 'User not authenticated');
+      return {
+        success: false,
+        message: data.message || 'User not authenticated',
+        error: 'auth_error'
+      };
     }
 
     return {
@@ -149,8 +155,8 @@ export const getCurrentUser = async (): Promise<AuthResponse> => {
     console.error('Get current user error:', error);
     return {
       success: false,
-      message: error.message || 'Failed to get user data',
-      error: error.name,
+      message: 'Failed to get user data',
+      error: 'fetch_error',
     };
   }
 };

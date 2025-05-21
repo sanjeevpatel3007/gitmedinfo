@@ -3,52 +3,53 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import axios from 'axios';
 import { toast } from 'react-hot-toast';
-
-interface Category {
-  _id: string;
-  name: string;
-  description: string;
-  slug: string;
-  createdAt: string;
-}
+import { useCategoryStore, Category } from '@/store/categoryStore';
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    categories, 
+    isLoading, 
+    error,
+    success, 
+    fetchCategories,
+    deleteCategory 
+  } = useCategoryStore();
+  
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
 
   useEffect(() => {
     fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get('/api/categories');
-      setCategories(response.data.categories);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      toast.error('Failed to load categories');
-    } finally {
-      setLoading(false);
+  }, [fetchCategories]);
+  
+  // Show error toast when error occurs
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
     }
-  };
+  }, [error]);
+  
+  // Show success toast when operation succeeds
+  useEffect(() => {
+    if (success) {
+      toast.success(success);
+    }
+  }, [success]);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this category?')) return;
 
     try {
       setDeleteLoading(id);
-      await axios.delete(`/api/categories/${id}`);
-      toast.success('Category deleted successfully');
-      fetchCategories();
+      const success = await deleteCategory(id);
+      if (success) {
+        toast.success('Category deleted successfully');
+      }
     } catch (error: any) {
       console.error('Error deleting category:', error);
-      toast.error(error.response?.data?.error || 'Failed to delete category');
+      toast.error('Failed to delete category');
     } finally {
       setDeleteLoading(null);
     }
@@ -97,7 +98,7 @@ export default function CategoriesPage() {
         </div>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="bg-white rounded-xl shadow-md p-6 flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>

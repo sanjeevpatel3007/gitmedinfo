@@ -1,26 +1,100 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import axios from 'axios';
-import { toast } from 'react-hot-toast';
+import { toast, Toaster } from 'react-hot-toast';
+import { useCategoryStore } from '@/store/categoryStore';
+import { useAuthStore } from '@/store/authStore';
 
 export default function AddCategoryPage() {
+  const { createCategory, isLoading, error, success } = useCategoryStore();
+  const { user, isAuthenticated, checkAuth, initAuth } = useAuthStore();
   const [formData, setFormData] = useState({
     name: '',
     description: ''
   });
-  const [loading, setLoading] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+
+  // Initialize auth on page load
+  useEffect(() => {
+    const init = async () => {
+      await initAuth();
+      setAuthChecked(true);
+    };
+    init();
+  }, [initAuth]);
+
+  // Check authentication on page load
+  useEffect(() => {
+    const verifyAuth = async () => {
+      if (authChecked) {
+        const isAuth = await checkAuth();
+        if (!isAuth) {
+          toast.error('You must be logged in to access this page');
+          router.push('/auth/login?redirect=/admin/categories/add');
+          return;
+        }
+        
+        if (user && user.role !== 'admin') {
+          toast.error('Admin access required');
+          router.push('/');
+        }
+      }
+    };
+    verifyAuth();
+  }, [authChecked, checkAuth, router, user]);
+
+  // Handle errors from store
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      setIsSubmitting(false);
+    }
+  }, [error]);
+
+  // Handle success message and redirect
+  useEffect(() => {
+    if (success && isSubmitting) {
+      toast.success(success);
+      // Add a short delay before redirecting to ensure toast is visible
+      const redirectTimer = setTimeout(() => {
+        router.replace('/admin/categories');
+      }, 800);
+      
+      return () => clearTimeout(redirectTimer);
+    }
+  }, [success, router, isSubmitting]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent multiple submissions
+    if (isSubmitting || isLoading) {
+      return;
+    }
+    
+    // Check authentication
+    if (!isAuthenticated) {
+      const isAuth = await checkAuth();
+      if (!isAuth) {
+        toast.error('Please log in again to continue');
+        router.push('/auth/login?redirect=/admin/categories/add');
+        return;
+      }
+    }
+    
+    if (!user || user.role !== 'admin') {
+      toast.error('Admin access required');
+      return;
+    }
     
     // Validate form
     if (!formData.name.trim() || !formData.description.trim()) {
@@ -28,21 +102,36 @@ export default function AddCategoryPage() {
       return;
     }
 
+    // Show loading toast and set submitting state
+    setIsSubmitting(true);
+    const loadingToast = toast.loading('Creating category...');
+    
     try {
-      setLoading(true);
-      await axios.post('/api/categories', formData);
-      toast.success('Category created successfully');
-      router.push('/admin/categories');
-    } catch (error: any) {
-      console.error('Error creating category:', error);
-      toast.error(error.response?.data?.error || 'Failed to create category');
-    } finally {
-      setLoading(false);
+      const result = await createCategory(formData);
+      if (result) {
+        toast.success('Category created successfully', { id: loadingToast });
+        // Redirect handled in useEffect
+      } else {
+        toast.error('Failed to create category', { id: loadingToast });
+        setIsSubmitting(false);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'An error occurred while creating the category', { id: loadingToast });
+      setIsSubmitting(false);
     }
-  };
+  }, [checkAuth, createCategory, formData, isAuthenticated, isLoading, isSubmitting, router, user]);
+
+  if (!authChecked || !isAuthenticated || (user && user.role !== 'admin')) {
+    return (
+      <div className="container mx-auto px-4 py-8 flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <Toaster position="top-right" />
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Add New Category</h1>
         <Link 
@@ -67,6 +156,7 @@ export default function AddCategoryPage() {
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
+              disabled={isSubmitting || isLoading}
             />
           </div>
 
@@ -82,18 +172,19 @@ export default function AddCategoryPage() {
               rows={4}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
+              disabled={isSubmitting || isLoading}
             />
           </div>
 
           <div className="flex justify-end">
             <button
               type="submit"
-              disabled={loading}
+              disabled={isSubmitting || isLoading}
               className={`bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
+                isSubmitting || isLoading ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
-              {loading ? 'Creating...' : 'Create Category'}
+              {isSubmitting || isLoading ? 'Creating...' : 'Create Category'}
             </button>
           </div>
         </form>
