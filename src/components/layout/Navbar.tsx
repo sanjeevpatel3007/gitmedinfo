@@ -1,32 +1,57 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import Image from 'next/image';
+import { toast } from 'react-toastify';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
   
-  // Use auth store
-  const { user, isAuthenticated, logout } = useAuthStore();
+  // Use auth store with proper status checks
+  const { 
+    user, 
+    isAuthenticated, 
+    isLoading, 
+    isInitialized, 
+    checkAuth,
+    logout 
+  } = useAuthStore();
+
+  // Use a memoized version of auth check to prevent excessive renders
+  const debouncedCheckAuth = useCallback(() => {
+    if (isInitialized || isLoading) return;
+    checkAuth();
+  }, [checkAuth, isInitialized, isLoading]);
   
+  // Only check auth on initial mount, not on every render
+  useEffect(() => {
+    // Only check auth once when component mounts and when not already initialized
+    if (!isInitialized && !isLoading) {
+      debouncedCheckAuth();
+    }
+  }, [debouncedCheckAuth, isInitialized, isLoading]);
+
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      logout();
+      await logout();
+      toast.success('Logged out successfully');
     } catch (error) {
       console.error('Logout failed:', error);
+      toast.error('Logout failed. Please try again.');
     }
   };
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
+
+  // Create variables for visibility conditions to improve readability
+  const isUserAuthenticated = !isLoading && isAuthenticated && user;
+  const showAuthButtons = !isLoading && !isAuthenticated;
 
   return (
     <header className="bg-white shadow-sm">
@@ -53,7 +78,7 @@ const Navbar: React.FC = () => {
               <Link
                 href="/categories"
                 className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                  pathname === '/categories' || pathname.startsWith('/categories/')
+                  pathname === '/categories' || pathname?.startsWith('/categories/')
                     ? 'border-blue-500 text-gray-900'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
@@ -63,35 +88,36 @@ const Navbar: React.FC = () => {
               <Link
                 href="/medicines"
                 className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                  pathname === '/medicines' || pathname.startsWith('/medicines/')
+                  pathname === '/medicines' || pathname?.startsWith('/medicines/')
                     ? 'border-blue-500 text-gray-900'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
                 Medicines
               </Link>
-
-
             </nav>
           </div>
           
-          {/* Auth buttons */}
+          {/* Auth buttons - Render loading state during authentication check */}
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
-            {isAuthenticated ? (
+            {isLoading && (
+              <div className="text-sm text-gray-500">
+                <LoadingSpinner size="sm" />
+              </div>
+            )}
+            {isUserAuthenticated && (
               <div className="flex items-center space-x-4">
-                {user && (
-                  <div className="text-sm font-medium text-gray-700">
-                    {user.role === 'admin' ? (
-                      <Link href="/admin" className="text-blue-600 hover:text-blue-800">
-                        Admin Dashboard
-                      </Link>
-                    ) : (
-                      <Link href="/profile" className="text-blue-600 hover:text-blue-800">
-                        {user.name}
-                      </Link>
-                    )}
-                  </div>
-                )}
+                <div className="text-sm font-medium text-gray-700">
+                  {user.role === 'admin' ? (
+                    <Link href="/admin/dashboard" className="text-blue-600 hover:text-blue-800">
+                      Admin Dashboard
+                    </Link>
+                  ) : (
+                    <Link href="/profile" className="text-blue-600 hover:text-blue-800">
+                      {user.name}
+                    </Link>
+                  )}
+                </div>
                 <button
                   onClick={handleLogout}
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -99,16 +125,18 @@ const Navbar: React.FC = () => {
                   Logout
                 </button>
               </div>
-            ) : (
+            )}
+            
+            {showAuthButtons && (
               <div className="flex items-center space-x-4">
                 <Link
-                  href="/login"
+                  href="/auth/login"
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Login
                 </Link>
                 <Link
-                  href="/register"
+                  href="/auth/register"
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Register
@@ -155,25 +183,37 @@ const Navbar: React.FC = () => {
             <Link
               href="/categories"
               className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                pathname === '/categories' || pathname.startsWith('/categories/')
+                pathname === '/categories' || pathname?.startsWith('/categories/')
                   ? 'border-blue-500 bg-blue-50 text-blue-700'
                   : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
               }`}
             >
               Categories
             </Link>
+            <Link
+              href="/medicines"
+              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                pathname === '/medicines' || pathname?.startsWith('/medicines/')
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              Medicines
+            </Link>
           </div>
           
           {/* Mobile auth buttons */}
           <div className="pt-4 pb-3 border-t border-gray-200">
-            {isAuthenticated ? (
+            {isLoading ? (
+              <div className="px-4 py-2 text-base font-medium text-gray-500">
+                <LoadingSpinner size="sm" />
+              </div>
+            ) : isUserAuthenticated ? (
               <div className="space-y-1">
-                {user && (
-                  <div className="px-4 py-2 text-base font-medium text-gray-500">
-                    Signed in as: <span className="font-medium text-gray-900">{user.name}</span>
-                  </div>
-                )}
-                {user?.role === 'admin' && (
+                <div className="px-4 py-2 text-base font-medium text-gray-500">
+                  Signed in as: <span className="font-medium text-gray-900">{user.name}</span>
+                </div>
+                {user.role === 'admin' && (
                   <Link
                     href="/admin/dashboard"
                     className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700"
@@ -197,13 +237,13 @@ const Navbar: React.FC = () => {
             ) : (
               <div className="space-y-1">
                 <Link
-                  href="/login"
+                  href="/auth/login"
                   className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700"
                 >
                   Login
                 </Link>
                 <Link
-                  href="/register"
+                  href="/auth/register"
                   className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700"
                 >
                   Register

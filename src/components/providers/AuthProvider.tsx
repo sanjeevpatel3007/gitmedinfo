@@ -1,52 +1,106 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useRouter, usePathname } from 'next/navigation';
+import { toast } from 'react-toastify';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+
+// Define public and protected paths
+const PUBLIC_PATHS = [
+  '/',
+  '/auth/login',
+  '/auth/register',
+  '/categories',
+  '/medicines'
+];
+
+const ADMIN_PATHS = ['/admin', '/admin/dashboard', '/admin/categories', '/admin/medicines'];
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, setUser, setIsAuthenticated, setIsLoading, isLoading } = useAuthStore();
+  const { 
+    user, 
+    isAuthenticated, 
+    isLoading, 
+    isInitialized,
+    error,
+    initAuth
+  } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
+  const redirectInProgressRef = useRef(false);
+  const authInitializedRef = useRef(false);
 
-  // Check authentication status on mount and when pathname changes
+  // Initialize auth state when component mounts - only once
   useEffect(() => {
-    const checkAuth = async () => {
-      // Skip re-checking if already authenticated
-      if (isAuthenticated && user) {
-        setIsLoading(false);
-        return;
-      }
-      
+    if (!isInitialized && !authInitializedRef.current) {
+      authInitializedRef.current = true;
+      initAuth();
+    }
+  }, [isInitialized, initAuth]);
+
+  // Handle auth state changes and path-based redirects
+  useEffect(() => {
+    // Don't execute if still initializing or loading auth state
+    if (!isInitialized || isLoading) return;
+    
+    // Don't redirect if already in progress to prevent redirect loops
+    if (redirectInProgressRef.current) return;
+
+    const isPublicPath = PUBLIC_PATHS.some(path => 
+      pathname === path || 
+      pathname?.startsWith('/categories/') || 
+      pathname?.startsWith('/medicines/')
+    );
+
+    const isAdminPath = ADMIN_PATHS.some(path => 
+      pathname === path || pathname?.startsWith(path + '/')
+    );
+
+    const handleRedirects = async () => {
       try {
-        setIsLoading(true);
-        const response = await fetch('/api/auth/me');
+        redirectInProgressRef.current = true;
         
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data.user);
-          setIsAuthenticated(true);
-          
-          // Redirect admin to admin dashboard if trying to access regular auth pages
-          if (data.user.role === 'admin' && 
-             (pathname === '/auth/login' || pathname === '/auth/register')) {
-            router.push('/admin/dashboard');
+        // Handle authenticated users on login/register pages
+        if (isAuthenticated && user) {
+          if (pathname === '/auth/login' || pathname === '/auth/register') {
+            if (user.role === 'admin') {
+              router.push('/admin/dashboard');
+            } else {
+              router.push('/');
+            }
+            return;
           }
-        } else {
-          // If not authenticated but trying to access protected routes - except admin routes
-          // Admin routes will handle their own auth in the component
-          if (pathname === '/profile') {
+
+          // Handle non-admin users trying to access admin paths
+          if (isAdminPath && user.role !== 'admin') {
+            toast.error('You do not have permission to access this page');
+            router.push('/');
+            return;
+          }
+        } 
+        // Handle unauthenticated users on protected paths
+        else if (!isAuthenticated) {
+          // If user is on a protected path, redirect to login
+          if (!isPublicPath) {
             router.push('/auth/login');
+            return;
           }
         }
-      } catch (error) {
-        console.error('Auth check failed:', error);
       } finally {
-        setIsLoading(false);
+        // Reset redirect flag after a small delay
+        setTimeout(() => {
+          redirectInProgressRef.current = false;
+        }, 200);
       }
     };
 
-    checkAuth();
-  }, [pathname, setUser, setIsAuthenticated, setIsLoading, router, isAuthenticated, user]);
+    handleRedirects();
+  }, [pathname, router, isAuthenticated, user, isInitialized, isLoading]);
+
+  // If we're still initializing auth, show loading spinner
+  if (!isInitialized && isLoading) {
+    return <LoadingSpinner fullScreen text="Initializing..." />;
+  }
 
   return <>{children}</>;
 }

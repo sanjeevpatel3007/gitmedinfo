@@ -5,6 +5,30 @@ import { getTokenFromRequest, verifyToken } from '@/lib/auth/jwtHelper';
 
 export async function GET(req: NextRequest) {
   try {
+    // Get token from request
+    const token = getTokenFromRequest(req);
+    
+    // If no token, return unauthorized early
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: 'Unauthorized', error: 'no_token' },
+        { status: 401 }
+      );
+    }
+    
+    // Verify token before connecting to database to save resources
+    const decoded = await verifyToken(token);
+    
+    if (!decoded) {
+      // Clear invalid token
+      const response = NextResponse.json(
+        { success: false, message: 'Invalid token', error: 'invalid_token' },
+        { status: 401 }
+      );
+      response.cookies.delete('token');
+      return response;
+    }
+
     try {
       await dbConnect();
     } catch (dbError) {
@@ -20,36 +44,19 @@ export async function GET(req: NextRequest) {
       );
     }
     
-    // Get token from request
-    const token = getTokenFromRequest(req);
-    
-    // If no token, return unauthorized
-    if (!token) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized', error: 'no_token' },
-        { status: 401 }
-      );
-    }
-    
-    // Verify token
-    const decoded = verifyToken(token);
-    
-    if (!decoded) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid token', error: 'invalid_token' },
-        { status: 401 }
-      );
-    }
-    
     try {
-      // Find user by ID
-      const user = await User.findById(decoded.id);
+      // Find user by ID using the decoded token payload
+      const userId = decoded.id;
+      const user = await User.findById(userId);
       
       if (!user) {
-        return NextResponse.json(
+        // User not found but token was valid - clear the token
+        const response = NextResponse.json(
           { success: false, message: 'User not found', error: 'user_not_found' },
           { status: 404 }
         );
+        response.cookies.delete('token');
+        return response;
       }
       
       // Return user data
@@ -72,7 +79,9 @@ export async function GET(req: NextRequest) {
     
   } catch (error: any) {
     console.error('Error getting current user:', error);
-    return NextResponse.json(
+    
+    // Return appropriate error and clear token if it seems to be corrupted
+    const response = NextResponse.json(
       { 
         success: false, 
         message: error.message || 'Failed to get user',
@@ -80,5 +89,11 @@ export async function GET(req: NextRequest) {
       },
       { status: 500 }
     );
+    
+    if (error.code === 'ERR_JWS_INVALID') {
+      response.cookies.delete('token');
+    }
+    
+    return response;
   }
 } 

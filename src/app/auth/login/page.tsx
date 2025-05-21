@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import { useAuthStore } from '@/store/authStore';
+import { loginUser } from '@/lib/services/authService';
+import { toast } from 'react-toastify';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -21,41 +23,32 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      console.log('Attempting login with:', email);
-      
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include', // Important for receiving cookies
-      });
+      const response = await loginUser({ email, password });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Login failed');
+      if (!response.success) {
+        setError(response.message);
+        return;
       }
 
-      console.log('Login successful, user data:', data.user);
+      // Set user in global state if login was successful
+      if (response.user) {
+        setUser({
+          id: response.user.id,
+          name: response.user.name,
+          email: response.user.email,
+          role: response.user.role,
+        });
+        setIsAuthenticated(true);
 
-      // Set user in global state
-      setUser({
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        role: data.user.role,
-      });
-      setIsAuthenticated(true);
+        // Show success toast
+        toast.success('Login successful!');
 
-      // Redirect based on role using Next.js router
-      if (data.user.role === 'admin') {
-        console.log('Redirecting to admin dashboard');
-        router.push('/admin/dashboard');
-      } else {
-        console.log('Redirecting to home page');
-        router.push('/');
+        // Redirect based on role
+        if (response.user.role === 'admin') {
+          router.push('/admin/dashboard');
+        } else {
+          router.push('/');
+        }
       }
     } catch (error: any) {
       console.error('Login error:', error);

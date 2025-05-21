@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import { useAuthStore } from '@/store/authStore';
+import { registerUser } from '@/lib/services/authService';
+import { toast } from 'react-toastify';
 
 const RegisterPage = () => {
   const [name, setName] = useState('');
@@ -27,36 +29,40 @@ const RegisterPage = () => {
       return;
     }
 
+    // Validate password strength
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name, email, password }),
-      });
+      const response = await registerUser({ name, email, password });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Registration failed');
+      if (!response.success) {
+        setError(response.message);
+        return;
       }
 
-      // Set user in global state
-      setUser({
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        role: data.user.role,
-      });
-      setIsAuthenticated(true);
+      // Set user in global state if registration was successful
+      if (response.user) {
+        setUser({
+          id: response.user.id,
+          name: response.user.name,
+          email: response.user.email,
+          role: response.user.role,
+        });
+        setIsAuthenticated(true);
 
-      // Redirect to home page
-      router.push('/');
+        // Show success toast
+        toast.success('Registration successful! Welcome to GetMedInfo.');
+
+        // Redirect to home page - all new registrations are regular users
+        router.push('/');
+      }
     } catch (error: any) {
-      setError(error.message);
+      setError(error.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

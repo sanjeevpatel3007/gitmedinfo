@@ -5,8 +5,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import AdminCheck from '@/components/admin/AdminCheck';
+import { usePathname, useRouter } from 'next/navigation';
+import AdminProtected from '@/components/admin/AdminProtected';
+import { useAuthStore } from '@/store/authStore';
+import { toast } from 'react-toastify';
 
 // Icons
 const DashboardIcon = () => (
@@ -16,8 +18,11 @@ const DashboardIcon = () => (
 );
 
 //main website icon
-
-
+const HomeIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+  </svg>
+);
 
 const CategoryIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -71,13 +76,15 @@ const navigationItems = [
   { name: 'Dashboard', href: '/admin', icon: DashboardIcon },
   { name: 'Categories', href: '/admin/categories', icon: CategoryIcon },
   { name: 'Medicines', href: '/admin/medicines', icon: MedicineIcon },
-  { name: 'Users', href: '/admin', icon: UserIcon },
-  { name: 'Main Website', href: '/', icon: DashboardIcon },
+  { name: 'Users', href: '/admin/users', icon: UserIcon },
+  { name: 'Main Website', href: '/', icon: HomeIcon },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuthStore();
 
   // Close sidebar on route change (for mobile)
   useEffect(() => {
@@ -91,8 +98,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return pathname.startsWith(path);
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logged out successfully');
+      router.push('/auth/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      toast.error('Logout failed');
+    }
+  };
+
+  // Get admin name initial for avatar
+  const getInitial = () => {
+    if (user?.name) {
+      return user.name.charAt(0).toUpperCase();
+    }
+    return 'A';
+  };
+
   return (
-    <AdminCheck>
+    <AdminProtected>
       <div className="min-h-screen bg-gray-100 flex">
         {/* Sidebar for desktop */}
         <aside 
@@ -104,7 +130,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Sidebar header */}
             <div className="px-4 py-5 flex items-center justify-between border-b border-gray-700">
               <Link href="/admin" className="text-xl font-bold text-white">
-                Medicine Info
+                GetMedInfo Admin
               </Link>
               <button 
                 onClick={() => setSidebarOpen(false)} 
@@ -136,14 +162,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* User section */}
             <div className="border-t border-gray-700 p-4">
               <div className="flex items-center">
-                <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-medium text-white">A</span>
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-sm font-medium text-white">{getInitial()}</span>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-white">Admin User</p>
+                  <p className="text-sm font-medium text-white">{user?.name || 'Admin'}</p>
+                  <p className="text-xs text-gray-300">{user?.email || ''}</p>
                 </div>
               </div>
-              <button className="mt-3 flex items-center text-sm font-medium text-gray-300 hover:text-white transition-colors w-full">
+              <button 
+                onClick={handleLogout}
+                className="mt-3 flex items-center text-sm font-medium text-gray-300 hover:text-white transition-colors w-full"
+              >
                 <LogoutIcon />
                 <span className="ml-2">Logout</span>
               </button>
@@ -205,10 +235,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   {/* Profile dropdown (simplified) */}
                   <div className="hidden sm:block">
                     <div className="flex items-center">
-                      <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-700">A</span>
+                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-white">{getInitial()}</span>
                       </div>
-                      <span className="ml-2 text-sm font-medium text-gray-700">Admin</span>
+                      <span className="ml-2 text-sm font-medium text-gray-700">{user?.name || 'Admin'}</span>
                     </div>
                   </div>
                 </div>
@@ -222,6 +252,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </main>
         </div>
       </div>
-    </AdminCheck>
+    </AdminProtected>
   );
 } 

@@ -13,27 +13,55 @@ type TokenPayload = {
 };
 
 export const generateToken = async (user: IUser): Promise<string> => {
-  return await new SignJWT({ id: user._id.toString(), role: user.role })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime('7d')
-    .sign(SECRET);
+  try {
+    return await new SignJWT({ id: user._id.toString(), role: user.role })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt() // Add issued at time
+      .setExpirationTime('7d')
+      .sign(SECRET);
+  } catch (error) {
+    console.error('Error generating token:', error);
+    throw new Error('Failed to generate authentication token');
+  }
 };
 
 export const verifyToken = async (token: string): Promise<TokenPayload | null> => {
-  if (!token || token === 'undefined' || token === 'null') {
-    console.log('Invalid token provided to verifyToken');
+  // Basic validation before attempting verification
+  if (!token || token === 'undefined' || token === 'null' || typeof token !== 'string') {
+    console.log('Invalid token format provided to verifyToken');
+    return null;
+  }
+  
+  // Additional validation for token format
+  if (!token.includes('.') || token.split('.').length !== 3) {
+    console.log('Token does not have valid JWT format');
     return null;
   }
   
   try {
-    const { payload } = await jwtVerify(token, SECRET);
-    if (!payload.id || !payload.role) {
+    const { payload } = await jwtVerify(token, SECRET, {
+      maxTokenAge: '7d' // Add additional verification parameter
+    });
+    
+    // Ensure payload has required fields
+    if (!payload || typeof payload !== 'object' || !payload.id || !payload.role) {
       console.error('Token payload missing required fields');
       return null;
     }
-    return payload as unknown as TokenPayload;
-  } catch (error) {
-    console.error('Token verification error:', error);
+    
+    return {
+      id: String(payload.id),
+      role: String(payload.role)
+    };
+  } catch (error: any) {
+    // More detailed error logging to help diagnose issues
+    if (error.code === 'ERR_JWS_INVALID') {
+      console.error('Invalid JWT signature');
+    } else if (error.code === 'ERR_JWT_EXPIRED') {
+      console.error('Token expired');
+    } else {
+      console.error('Token verification error:', error);
+    }
     return null;
   }
 };
@@ -83,7 +111,12 @@ export const getTokenFromRequest = (req: NextRequest): string | null => {
   }
   
   // Validate token format
-  if (token === 'undefined' || token === 'null' || !token) {
+  if (token === 'undefined' || token === 'null' || !token || typeof token !== 'string') {
+    return null;
+  }
+  
+  // Additional basic validation before returning
+  if (!token.includes('.') || token.split('.').length !== 3) {
     return null;
   }
   
