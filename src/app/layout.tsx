@@ -5,7 +5,12 @@ import AuthProvider from '@/components/providers/AuthProvider';
 import ToastProvider from '@/components/ToastProvider';
 import MainLayout from '@/components/MainLayout';
 
-const inter = Inter({ subsets: ['latin'] });
+// Load Inter with more weights for better typography
+const inter = Inter({ 
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '500', '600', '700']
+});
 
 export const metadata: Metadata = {
   title: 'GetMedInfo - Medical Information Resource',
@@ -22,13 +27,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} min-h-screen flex flex-col bg-gray-50`}>
+    <html lang="en" className="scroll-smooth">
+      <body className={`${inter.className} antialiased text-gray-800 bg-white overflow-x-hidden w-full`}>
         <AuthProvider>
           <ToastProvider>
-            <MainLayout>
-              {children}
-            </MainLayout>
+            <div className="flex flex-col min-h-screen max-w-full">
+              <MainLayout>
+                {children}
+              </MainLayout>
+            </div>
           </ToastProvider>
         </AuthProvider>
       </body>

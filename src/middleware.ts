@@ -22,8 +22,14 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/_next') ||
     path.includes('.') || // Allow access to static files
     path.startsWith('/api/upload') || // Allow upload API access
-    // Skip middleware processing for admin routes - will be handled client-side
-    path.startsWith('/admin')
+    path.startsWith('/admin') || // Skip middleware processing for admin routes - will be handled client-side
+    path.startsWith('/about') ||
+    path === '/contact' ||
+    path === '/help' ||
+    path === '/privacy-policy' ||
+    path === '/terms' ||
+    path === '/cookies' ||
+    path === '/services'
   ) {
     console.log('Public path access granted');
     return NextResponse.next();

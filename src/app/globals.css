@@ -1,1 +1,29 @@
 @import "tailwindcss";
+
+/* Fix layout fluctuation */
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+/* Prevent unexpected width changes when scrollbars appear */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* Force consistent sizing across the site */
+* {
+  box-sizing: border-box;
+}
+
+/* Ensure main content has consistent width */
+main {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
